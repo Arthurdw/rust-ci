@@ -1,0 +1,89 @@
+name: Scheduled Build and Push Docker Image
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # Runs every day at midnight
+  workflow_dispatch: # Allows manual triggering of the workflow
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Check for Rust updates
+        id: rust_update
+        run: |
+          docker pull rust:latest
+
+          latest_rust_image_id=$(docker inspect --format='{{.Id}}' rust:latest)
+          echo "Latest Rust Image ID: $latest_rust_image_id"
+
+          # Compare with the current image ID
+          if [ -f rust_image_id.txt ]; then
+            current_rust_image_id=$(cat rust_image_id.txt)
+          else
+            current_rust_image_id=""
+          fi
+
+          echo "Current Rust Image ID: $current_rust_image_id"
+
+          # Save the latest image ID
+          echo $latest_rust_image_id > rust_image_id.txt
+
+          # Set output variable
+          echo "updated=false" >> $GITHUB_OUTPUT
+          if [ "$latest_rust_image_id" != "$current_rust_image_id" ]; then
+            echo "updated=true" >> $GITHUB_OUTPUT
+            # Generate short and full hash versions for tags
+            full_hash=${latest_rust_image_id:7}
+            short_hash=${latest_rust_image_id:7:8} 
+            echo "full_hash=${full_hash}" >> $GITHUB_OUTPUT
+            echo "short_hash=${short_hash}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push rust_image_id.txt
+        if: steps.rust_update.outputs.updated == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add rust_image_id.txt
+          git commit -m "ci: Update rust_image_id.txt"
+
+      - name: Build and push Docker image
+        if: steps.rust_update.outputs.updated == 'true'
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/rust-ci:latest
+            ${{ secrets.DOCKER_USERNAME }}/rust-ci:${{ steps.rust_update.outputs.full_hash }}
+            ${{ secrets.DOCKER_USERNAME }}/rust-ci:${{ steps.rust_update.outputs.short_hash }}
+
+      - name: Push changes
+        if: steps.rust_update.outputs.updated == 'true'
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.PAT_TOKEN }}
+          branch: ${{ github.ref }}

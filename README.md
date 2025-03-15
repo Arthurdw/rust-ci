@@ -8,7 +8,7 @@ A simple image which can be used for Rust ci/cd flows.
 
 - **Base Image**: Built on the latest Rust image
 - **Cargo tools**: `nextest`, `make`, `audit`, `machete`, `release`
-- **General tools**: `sqlx-cli`
+- **General tools**: `sqlx-cli`, `jq`
 - **Faster Compilation**: `mold`, `sccache`
 
 ## Installation

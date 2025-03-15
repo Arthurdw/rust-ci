@@ -11,4 +11,4 @@ ENV CARGO_PROFILE_RELEASE_LTO=true
 # Install Rust tools
 RUN cargo install cargo-nextest cargo-make sqlx-cli cargo-audit cargo-machete cargo-release sccache
 
-ENV RUSTC_WRAPPER="$(which sccache)"
+ENV RUSTC_WRAPPER="sccache"

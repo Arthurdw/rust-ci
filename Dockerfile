@@ -9,6 +9,6 @@ ENV RUSTFLAGS="-C link-arg=-fuse-ld=mold"
 ENV CARGO_PROFILE_RELEASE_LTO=true
 
 # Install Rust tools
-RUN cargo install cargo-nextest cargo-make sqlx-cli cargo-audit cargo-machete cargo-release sccache
+RUN cargo install --locked cargo-nextest cargo-make sqlx-cli cargo-audit cargo-machete cargo-release sccache
 
 ENV RUSTC_WRAPPER="sccache"
